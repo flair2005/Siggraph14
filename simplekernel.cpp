@@ -7,29 +7,24 @@
 #include <iostream>
 #include "CL/sycl.hpp"
 
-float subtract(float a, float b) //function we are going to call from SYCL kernel.
-{
-    return a - b;
-}
+float subtract(float a, float b) { return a - b; }
 
 int main()
 {
-	float 	floatVal = 0.0f;
-	
-    {   // This block defines the scope where the SYCL objects will live.
-		cl::sycl::default_selector selector;  // Default selector
-		cl::sycl::queue myQueue(selector);
-		
-		cl::sycl::buffer<float, 1> 	floatBuf(&floatVal, 1); //SYCL runtime data ownership
-
-		cl::sycl::command_group(myQueue, [&]() {  // kernel and dependencies
-            //auto == cl::sycl::accessor<float, 1, access::read_write, access::global_buffer>
-            auto floatAcc = floatBuf.get_access<access::read_write>();
-			cl::sycl::single_task(kernel_functor<class subtractKernel>([=](){
-                floatAcc[0] = subtract(floatAcc[0], 42.0f);
-            }));
-		});
-	}
-    std::cout << "floatVal	: " << floatVal << std::endl;
-	return 0;
+  float result = 0.0f; //this is where we will write our result
+  { // all SYCL work in a {} block will be completed before exiting the block
+    cl::sycl::queue myQueue; // create a queue to work on
+    cl::sycl::buffer<float, 1> 	resultBuf(&result, 1); //wrap variable in a buffer
+    cl::sycl::command_group(myQueue, [&]() { // create 'command' for our 'queue'
+      //request access to our buffer
+      //cl::sycl::accessor<float, 1, access::read_write, access::global_buffer>
+      auto resultAcc = resultBuf.get_access<access::read_write>();
+      //enqueue a single, simple task
+      cl::sycl::single_task(kernel_functor<class subtractKernel>([=](){
+        resultAcc[0] = subtract(resultAcc[0], 42.0f);
+      }));
+    }); //end of out commands for this queue
+  } //end scope, so we wait for the queue to complete
+  std::cout << "result	: " << result << std::endl;
+  return 0;
 }

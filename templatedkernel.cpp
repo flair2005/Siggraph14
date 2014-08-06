@@ -13,7 +13,6 @@ template<typename T>
 class subtract_functor {
     accessor<T, 1, access::read_write, access::global_buffer> m_acc;
     T m_value;
-    
 public:
     subtract_functor(accessor<T, 1, access::read_write, access::global_buffer> acc, T value)
     : m_acc(acc), m_value(value){ }
@@ -27,28 +26,24 @@ public:
 
 int main()
 {
-	int 	intVal = 0;
-	float 	floatVal = 0.0f;
-	
-    {   // This block defines the scope where the SYCL objects will live.
-		default_selector selector;  // Default selector
-		queue myQueue(selector);
-		
-		buffer<int, 1> 		intBuf(&intVal, 1); // Buffers
-		buffer<float, 1> 	floatBuf(&floatVal, 1);
+  int intResult = 0; //this is where we will write our result
+  float floatResult = 0.0f;
+  {   // all SYCL work in a {} block will be completed before exiting the block
+    queue myQueue;
+    buffer<int, 1> 		intBuf(&intResult, 1); // Buffers
+    buffer<float, 1> 	floatBuf(&floatResult, 1);
+    command_group(myQueue, [&]() {  //enqueue a single, simple task for int
+      auto intAcc 	= intBuf.get_access<access::read_write>();
+      single_task(kernel_functor(subtract_functor<int>(intAcc, 42)));
+    }); //end of out commands for this queue
         
-		command_group(myQueue, [&]() {  // Kernel and it's dependencies for int
-            auto intAcc 	= intBuf.get_access<access::read_write>();
-			single_task(kernel_functor(subtract_functor<int>(intAcc, 42)));
-		});
-        
-		command_group(myQueue, [&]() {  // Kernel and it's dependencies for float
-            auto floatAcc 	= floatBuf.get_access<access::read_write>();
-			single_task(kernel_functor(subtract_functor<float>(floatAcc, 42.4242f)));
-		});
-	}
+    command_group(myQueue, [&]() {  //enqueue a single, simple task for float
+      auto floatAcc 	= floatBuf.get_access<access::read_write>();
+      single_task(kernel_functor(subtract_functor<float>(floatAcc, 42.4242f)));
+    }); //end of out commands for this queue
+  } //end scope, so we wait for the queue to complete
     
-	std::cout << "intVal	: " << intVal << std::endl;
-	std::cout << "floatVal	: " << floatVal << std::endl;
-	return 0;
+  std::cout << "intResult	: " << intResult << std::endl;
+  std::cout << "floatResult	: " << floatResult << std::endl;
+  return 0;
 }
