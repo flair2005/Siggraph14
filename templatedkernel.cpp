@@ -8,45 +8,49 @@
 #include "CL/sycl.hpp"
 using namespace cl::sycl;
 
-template<typename T>
+// templated kernel
+template <typename T>
 class subtract_functor {
-    T m_a, m_b;
-public:
-    subtract_functor(T a, T b) : m_a(a), m_b(b){ }
-    T operator()() { return m_a - m_b; }
+  accessor<T, 1, access::read_write, access::global_buffer> m_acc;
+  T m_value;
+
+ public:
+  subtract_functor(
+      accessor<T, 1, access::read_write, access::global_buffer> acc, T value)
+      : m_acc(acc), m_value(value) {}
+
+  T subtract(T a, T b) {
+    return a - b;
+  }  // templated subtract. Although it could be anything!
+
+  void operator()() {
+    m_acc[0] = subtract(m_acc[0], m_value);  // function operator
+  }
 };
 
-int main()
-{
-  float finalResultFloat = 0.0f;
-  int finalResultInt = 0;
-  { //all SYCL work in that block will completed before exiting it
-    queue myQueue;
-    //abstract underlying OpenCL data movement by using SYCL buffer
-    buffer<float, 1> floatBuf(&finalResultFloat, 1);
-    buffer<int, 1> intBuf(&finalResultInt, 1);
-    command_group(myQueue, [&]()
-    {
-      auto intAcc = 0; intBuf.get_access<access::read_write>();
-      //enqueue a single task based on functor
-      single_task(kernel_functor(
-      {
-          floatAcc[0] = subtract_functor(floatAcc[0], 42.42f);
-      }));
-    });//end of commands for this queue
+int main() {
+  int intVal = 0;
+  float floatVal = 0.0f;
 
-    command_group(myQueue, [&]()
-    {
+  {  // This block defines the scope where the SYCL objects will live.
+    default_selector selector;  // Default selector
+    queue myQueue(selector);
+
+    buffer<int, 1> intBuf(&intVal, 1);  // Buffers
+    buffer<float, 1> floatBuf(&floatVal, 1);
+
+    command_group(myQueue, [&]() {  // Kernel and it's dependencies for int
       auto intAcc = intBuf.get_access<access::read_write>();
-      //enqueue a single task based on functor
-      single_task(kernel_functor(
-      {
-          incAcc[0] = subtract_functor(intAcc[0], 42);
-      }));
-    });//end of commands for this queue
-  } //end scope, so we wait for the queue to complete
-    
-  std::cout << "intResult	: " << intResult << std::endl;
-  std::cout << "floatResult	: " << floatResult << std::endl;
+      single_task(kernel_functor(subtract_functor<int>(intAcc, 42)));
+    });
+
+    command_group(myQueue, [&]() {  // Kernel and it's dependencies for float
+      auto floatAcc = floatBuf.get_access<access::read_write>();
+      single_task(kernel_functor(subtract_functor<float>(floatAcc, 42.4242f)));
+    });
+  }
+
+  std::cout << "intVal	: " << intVal << std::endl;
+  std::cout << "floatVal	: " << floatVal << std::endl;
   return 0;
 }
