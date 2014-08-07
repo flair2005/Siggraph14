@@ -11,19 +11,21 @@ float subtract(float a, float b) { return a - b; }
 
 int main()
 {
-  float result = 0.0f; //this is where we will write our result
-  { // all SYCL work in a {} block will be completed before exiting the block
-    cl::sycl::queue myQueue; // create a queue to work on
-    cl::sycl::buffer<float, 1> 	resultBuf(&result, 1); //wrap variable in a buffer
-    cl::sycl::command_group(myQueue, [&]() { // create 'command' for our 'queue'
-      //request access to our buffer
-      //cl::sycl::accessor<float, 1, access::read_write, access::global_buffer>
+  float finalResult = 0.0f;
+  { // all SYCL work in that block will completed before exiting it
+    cl::sycl::queue myQueue;
+    //abstract underlying OpenCL data movement by using SYCL buffer
+    cl::sycl::buffer<float, 1> 	resultBuf(&finalResult, 1);
+    cl::sycl::command_group(myQueue, [&]()
+    {
       auto resultAcc = resultBuf.get_access<access::read_write>();
-      //enqueue a single, simple task
-      cl::sycl::single_task(kernel_functor<class subtractKernel>([=](){
+      //enqueue a single task
+      cl::sycl::single_task(kernel_functor<class subtractKernel>([=]()
+      {
+        //c++11 lambda kernel
         resultAcc[0] = subtract(resultAcc[0], 42.0f);
       }));
-    }); //end of out commands for this queue
+    }); //end of commands for this queue
   } //end scope, so we wait for the queue to complete
   std::cout << "result	: " << result << std::endl;
   return 0;
