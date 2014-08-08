@@ -18,8 +18,8 @@ class subtract_functor {
       : m_acc(acc), m_value(value) {}
   T subtract(T a, T b) { return a - b; }
   void operator()() {
-    cl::sycl::parallel_for(m_acc.size(),
-    kernel_functor<class T>([=] (cl::sycl::id<1> i),
+    cl::sycl::parallel_for(range<1>(m_acc.size()),
+    cl::sycl::kernel_functor<class kernel_functor>([=] (cl::sycl::id<1> i)
     {
         m_acc[i] = subtract(m_acc[i], m_value);
     }));
@@ -31,8 +31,8 @@ int main() {
   int finalResultInt[] = {0, 1, 2, 3};
   { // all SYCL work in that block will completed before exiting it
     queue myQueue;
-    buffer<float, 1> floatBuf(&finalResultFloat, 4);
-    buffer<int, 1> intBuf(&finalResultInt, 4);
+    buffer<float, 1> floatBuf(finalResultFloat, 4);
+    buffer<int, 1> intBuf(finalResultInt, 4);
     command_group(myQueue, [&]()
     {
       auto floatAcc = floatBuf.get_access<access::read_write>();
@@ -46,7 +46,7 @@ int main() {
       subtract_functor<int>(intAcc, 42);
     }); // end of commands for this queue
   } // end scope, so we wait for the queue to complete
-  std::cout << "finalResultInt: " << finalResultInt << std::endl;
-  std::cout << "finalResultFloat: " << finalResultFloat << std::endl;
+  std::cout << "finalResultInt: " << finalResultInt[0] << std::endl;
+  std::cout << "finalResultFloat: " << finalResultFloat[0] << std::endl;
   return 0;
 }

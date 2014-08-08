@@ -15,12 +15,13 @@ int main()
     {
       auto floatAcc = floatBuf.get_access<cl::sycl::access::read_write>();
       // enqueue a parallel_for based on lambda
-      cl::sycl::parallel_for(cl::sycl::nd_range<1>(cl::sycl::range<1>(4)),
+      cl::sycl::parallel_for(cl::sycl::range<1>(4),
       cl::sycl::kernel_functor<class subtractKernel>([=] (cl::sycl::id<1> i)
       {
         floatAcc[i] = subtract(floatAcc[i], 42.0f);
-      })); // end of commands for this queue
-    } // end scope, so we wait for the queue to complete
-    std::cout << "finalResultFloat: " << finalResultFloat[3] << std::endl;
-    return 0;
+      })); 
+    }); // end of commands for this queue
+  } // end scope, so we wait for the queue to complete
+  std::cout << "finalResultFloat: " << finalResultFloat[0] << std::endl;
+  return 0;
 }
