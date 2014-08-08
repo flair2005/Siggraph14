@@ -42,7 +42,7 @@ int main() {
     command_group(myQueue, [&]()
     {
       auto intAcc = intBuf.get_access<access::read_write>();
-      // enqueue a single task based on functor
+      // enqueue a parallel_for based on functor
       subtract_functor<int>(intAcc, 42);
     }); // end of commands for this queue
   } // end scope, so we wait for the queue to complete
