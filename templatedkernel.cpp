@@ -17,27 +17,33 @@ class subtract_functor {
       accessor<T, 1, access::read_write, access::global_buffer> acc, T value)
       : m_acc(acc), m_value(value) {}
   T subtract(T a, T b) { return a - b; }
-  void operator()() { m_acc[0] = subtract(m_acc[0], m_value); }
+  void operator()() {
+    cl::sycl::parallel_for(m_acc.size(),
+    kernel_functor<class T>([=] (cl::sycl::id<1> i),
+    {
+        m_acc[i] = subtract(m_acc[i], m_value);
+    }));
+  }
 };
 
 int main() {
-  float finalResultFloat = 0.0f;
-  int finalResultInt = 0;
+  float finalResultFloat[] = {0.0f, 1.0f, 2.0f, 3.0f};
+  int finalResultInt[] = {0, 1, 2, 3};
   { // all SYCL work in that block will completed before exiting it
     queue myQueue;
-    buffer<float, 1> floatBuf(&finalResultFloat, 1);
-    buffer<int, 1> intBuf(&finalResultInt, 1);
+    buffer<float, 1> floatBuf(&finalResultFloat, 4);
+    buffer<int, 1> intBuf(&finalResultInt, 4);
     command_group(myQueue, [&]()
     {
       auto floatAcc = floatBuf.get_access<access::read_write>();
-      // enqueue a single task based on functor
-      single_task(kernel_functor(subtract_functor<float>(floatAcc, 42.42f)));
+      // enqueue a parallel_for based on functor
+      subtract_functor<float>(floatAcc, 42.42f);
     }); // end of commands for this queue
     command_group(myQueue, [&]()
     {
       auto intAcc = intBuf.get_access<access::read_write>();
       // enqueue a single task based on functor
-      single_task(kernel_functor(subtract_functor<int>(intAcc, 42)));
+      subtract_functor<int>(intAcc, 42);
     }); // end of commands for this queue
   } // end scope, so we wait for the queue to complete
   std::cout << "finalResultInt: " << finalResultInt << std::endl;
